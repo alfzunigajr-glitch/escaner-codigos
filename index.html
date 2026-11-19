@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Escáner de códigos</title>
+<style>
+  * { box-sizing: border-box }
+  body { margin: 0; background: #edf3f6; color: #142b38; font: 16px/1.45 system-ui, sans-serif }
+  main { width: min(100% - 2rem, 520px); margin: 2rem auto }
+  h1 { margin: 0; font-size: clamp(2rem, 7vw, 2.7rem); line-height: 1.08 }
+  header p { color: #45616f; margin: .6rem 0 1.35rem }
+  section, form, details { padding: 1rem; background: white; border: 1px solid #d5e2e8; border-radius: 1rem; margin-bottom: .85rem }
+  label { display: grid; gap: .25rem; font-weight: 650; margin-bottom: .75rem }
+  input, select, textarea, button { width: 100%; min-height: 46px; border-radius: .5rem; padding: .6rem .7rem; font: inherit }
+  input, select, textarea { border: 1px solid #879eaa; color: inherit; background: white }
+  button { border: 0; background: #075b54; color: white; cursor: pointer; font-weight: 700 }
+  button:disabled { opacity: .6; cursor: wait }
+  .secondary { color: #075b54; background: #dff2ee }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem }
+  video { width: 100%; max-height: 45vh; object-fit: contain; background: #142b38; border-radius: .6rem; margin-bottom: .65rem }
+  p[role="status"] { margin: .6rem 0 0; color: #425c6b }
+  p[role="alert"] { color: #922a24 }
+  p:empty { display: none }
+  summary { cursor: pointer; font-weight: 650 }
+  details label:first-of-type { margin-top: .8rem }
+</style>
+<main>
+  <header><h1>Escáner de códigos</h1><p>Registra materiales de bodega y lecturas de medidores.</p></header>
+  <section aria-label="Cámara">
+    <video id="preview" muted playsinline hidden></video>
+    <button type="button" id="camera" class="secondary">Abrir cámara</button>
+    <p id="cameraStatus" role="status"></p>
+  </section>
+
+  <form id="entry">
+    <label>Código <input name="code" type="text" maxlength="150" autocomplete="off" required></label>
+    <div class="pair">
+      <label>Tipo <select name="type"><option>Bodega</option><option>Medidor</option></select></label>
+      <label><span id="amountLabel">Cantidad</span><input name="amount" type="text" inputmode="decimal" maxlength="25" required></label>
+    </div>
+    <label>Usuario <input name="operator" type="text" maxlength="100" autocomplete="name" required></label>
+    <label>Notas <textarea name="notes" maxlength="500" rows="2"></textarea></label>
+    <button id="save">Guardar en Google Sheets</button>
+    <p id="saveStatus" role="status"></p>
+    <p id="saveError" role="alert"></p>
+  </form>
+  <details id="connection">
+    <summary>Conexión con Google Sheets</summary>
+    <label>URL de Apps Script <input id="endpoint" type="url" placeholder="https://script.google.com/macros/s/…/exec"></label>
+    <label>Token de acceso <input id="token" type="password" autocomplete="off"></label>
+  </details>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js" defer></script>
+<script src="app.js" defer></script>
+</html>
