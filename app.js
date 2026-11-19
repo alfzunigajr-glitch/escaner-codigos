@@ -5,65 +5,11 @@ const cameraStatus = document.querySelector('#cameraStatus');
 const save = document.querySelector('#save');
 const saveStatus = document.querySelector('#saveStatus');
 const saveError = document.querySelector('#saveError');
-const connection = document.querySelector('#connection');
-const endpointInput = document.querySelector('#endpoint');
-const tokenInput = document.querySelector('#token');
 const code = form.elements.code;
+const SHEETS_APP = 'https://script.google.com/macros/s/AKfycbzxvkzzhn-zs0FssvbrMXo-tHQDbmDpVr7AJtkazFK9lXQ05OwjX8nOn3TbLSSUxhry5w/exec';
 
-const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzxvkzzhn-zs0FssvbrMXo-tHQDbmDpVr7AJtkazFK9lXQ05OwjX8nOn3TbLSSUxhry5w/exec';
-const CONNECTION_KEY = 'escaner-codigos.connection.v1';
-const connectionStatus = document.querySelector('#connectionStatus');
-const forgetConnection = document.querySelector('#forgetConnection');
-
-function rememberConnection() {
-  try {
-    localStorage.setItem(CONNECTION_KEY, JSON.stringify({
-      endpoint: endpointInput.value.trim(),
-      token: tokenInput.value.trim()
-    }));
-    connectionStatus.textContent = tokenInput.value.trim()
-      ? 'Conexión guardada en este navegador.'
-      : 'Ingresa el token una vez para conectar este navegador.';
-  } catch {
-    connectionStatus.textContent = 'Este navegador no permite recordar la conexión. Mantenla abierta para usarla.';
-  }
-}
-
-function restoreConnection() {
-  endpointInput.value = DEFAULT_ENDPOINT;
-  try {
-    const saved = JSON.parse(localStorage.getItem(CONNECTION_KEY) || 'null');
-    if (saved && typeof saved === 'object') {
-      if (typeof saved.endpoint === 'string' && saved.endpoint.trim()) {
-        endpointInput.value = saved.endpoint.trim();
-      }
-      if (typeof saved.token === 'string') tokenInput.value = saved.token.trim();
-    }
-    connectionStatus.textContent = tokenInput.value
-      ? 'Conexión guardada en este navegador.'
-      : 'Ingresa el token una vez para conectar este navegador.';
-  } catch {
-    connectionStatus.textContent = 'No se pudo recuperar la conexión. Ingresa el token para volver a configurarla.';
-  }
-  connection.open = !tokenInput.value;
-}
-
-endpointInput.addEventListener('input', rememberConnection);
-tokenInput.addEventListener('input', rememberConnection);
-forgetConnection.addEventListener('click', () => {
-  try {
-    localStorage.removeItem(CONNECTION_KEY);
-  } catch {
-    connectionStatus.textContent = 'No se pudo olvidar la conexión. Revisa los permisos de almacenamiento del navegador.';
-    return;
-  }
-  endpointInput.value = DEFAULT_ENDPOINT;
-  tokenInput.value = '';
-  connection.open = true;
-  connectionStatus.textContent = 'Conexión eliminada de este navegador.';
-});
-restoreConnection();
-
+// La conexión se gestiona con la sesión de Google. No se solicitan credenciales en el escáner.
+try { localStorage.removeItem('escaner-codigos.connection.v1'); } catch {}
 
 let cameraControls;
 let cameraSession = 0;
@@ -131,41 +77,69 @@ camera.addEventListener('click', async () => {
 
 window.addEventListener('pagehide', stopCamera);
 
-function confirmReceipt(endpoint, id) {
-  return new Promise((resolve) => {
-    const callback = 'receipt_' + crypto.randomUUID().replaceAll('-', '');
-    const url = new URL(endpoint);
-    url.search = new URLSearchParams({ id, callback, ts: String(Date.now()) });
-    const script = document.createElement('script');
-    const timeout = setTimeout(() => settle(false), 6000);
+function isGoogleBridge(origin) {
+  try {
+    const url = new URL(origin);
+    return url.protocol === 'https:' && (url.hostname === 'script.google.com' ||
+      url.hostname === 'script.googleusercontent.com' || url.hostname.endsWith('-script.googleusercontent.com'));
+  } catch { return false; }
+}
 
-    function settle(saved) {
+function saveWithGoogle(payload) {
+  return new Promise((resolve, reject) => {
+    const session = crypto.randomUUID();
+    const url = new URL(SHEETS_APP);
+    url.search = new URLSearchParams({mode:'bridge',session});
+    let popup;
+    let bridgeSource;
+    let bridgeOrigin;
+    let closedTimer;
+    let settled = false;
+    const timeout = setTimeout(() => finish(new Error('La conexión con Google tardó demasiado. Inicia sesión en la ventana de Google y vuelve a guardar.')), 90000);
+
+    function finish(error, result) {
+      if (settled) return;
+      settled = true;
       clearTimeout(timeout);
-      script.remove();
-      delete window[callback];
-      resolve(saved);
+      clearInterval(closedTimer);
+      window.removeEventListener('message', onMessage);
+      if (popup && !popup.closed) popup.close();
+      if (error) reject(error);
+      else resolve(result);
     }
 
-    window[callback] = (result) => settle(result?.saved === true);
-    script.onerror = () => settle(false);
-    script.src = url.href;
-    document.head.append(script);
+    function onMessage(event) {
+      const message = event.data;
+      if (!isGoogleBridge(event.origin) || message?.session !== session) return;
+      if (message.kind === 'scanner-ready') {
+        if (bridgeSource && event.source !== bridgeSource) return;
+        bridgeSource = event.source;
+        bridgeOrigin = event.origin;
+        bridgeSource.postMessage({kind:'scanner-save',session,payload},bridgeOrigin);
+      } else if (message.kind === 'scanner-result' && event.source === bridgeSource &&
+                 event.origin === bridgeOrigin && message.id === payload.id) {
+        if (message.saved) finish(null, message);
+        else finish(new Error(message.error || 'Google no pudo guardar el registro. Revisa los datos y vuelve a guardar.'));
+      }
+    }
+
+    window.addEventListener('message', onMessage);
+    popup = window.open(url.href, 'escanerSheets', 'popup,width=540,height=640');
+    if (!popup) {
+      finish(new Error('Permite las ventanas emergentes de esta app para guardar con tu cuenta de Google.'));
+      return;
+    }
+    closedTimer = setInterval(() => {
+      if (popup.closed) finish(new Error('Se cerró la ventana de Google. Vuelve a guardar los mismos datos.'));
+    }, 700);
   });
 }
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (save.disabled) return;
   saveStatus.textContent = '';
   saveError.textContent = '';
-  const endpoint = endpointInput.value.trim();
-  const token = tokenInput.value.trim();
-  if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(endpoint) || !token) {
-    connection.open = true;
-    saveError.textContent = 'Ingresa la URL /exec de Apps Script y el token.';
-    return;
-  }
-
-  rememberConnection();
   const data = new FormData(form);
   const value = code.value.trim();
   const quantity = String(data.get('amount')).trim().replace(',', '.');
@@ -178,42 +152,27 @@ form.addEventListener('submit', async (event) => {
     return;
   }
   const payload = {
-    sheet: 'Escaneos',
-    type,
-    code: value,
-    format: value === scannedCode ? scannedFormat : 'Manual',
-    amount: quantity,
-    operator,
-    notes: String(data.get('notes')).trim()
+    sheet:'Escaneos', type, code:value,
+    format:value === scannedCode ? scannedFormat : 'Manual',
+    amount:quantity, operator, notes:String(data.get('notes')).trim()
   };
-  const key = JSON.stringify([endpoint, payload]);
-  if (pending?.key !== key) pending = { key, id: crypto.randomUUID() };
-
+  const key = JSON.stringify(payload);
+  if (pending?.key !== key) pending = {key,id:crypto.randomUUID()};
   save.disabled = true;
-  saveStatus.textContent = 'Guardando registro…';
+  saveStatus.textContent = 'Guardando en Google Sheets…';
   try {
-    await fetch(endpoint, {
-      method: 'POST',
-      mode: 'no-cors',
-      credentials: 'omit',
-      body: new URLSearchParams({ ...payload, id: pending.id, token }),
-      signal: AbortSignal.timeout(10000)
-    }).catch(() => {});
-    for (let attempt = 0; attempt < 2; attempt++) {
-      if (await confirmReceipt(endpoint, pending.id)) {
-        pending = undefined;
-        code.value = '';
-        form.elements.amount.value = '';
-        form.elements.notes.value = '';
-        scannedCode = '';
-        scannedFormat = 'Manual';
-        cameraStatus.textContent = '';
-        saveStatus.textContent = 'Registro confirmado en Google Sheets.';
-        return;
-      }
-    }
+    await saveWithGoogle({...payload,id:pending.id});
+    pending = undefined;
+    code.value = '';
+    form.elements.amount.value = '';
+    form.elements.notes.value = '';
+    scannedCode = '';
+    scannedFormat = 'Manual';
+    cameraStatus.textContent = '';
+    saveStatus.textContent = 'Registro confirmado en Google Sheets.';
+  } catch (error) {
     saveStatus.textContent = '';
-    saveError.textContent = 'No se pudo confirmar el registro. Revisa la conexión y vuelve a guardar los mismos datos.';
+    saveError.textContent = error.message || 'No se pudo guardar. Vuelve a guardar los mismos datos.';
   } finally {
     save.disabled = false;
   }

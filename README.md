@@ -1,18 +1,21 @@
 # Escáner de códigos
 
-Página móvil para registrar materiales de bodega y lecturas de medidores. Lee EAN-13 y Code 128 con la cámara y también admite ingreso manual.
+Escáner móvil de EAN-13 y Code 128 para registrar materiales de bodega y lecturas de medidores en Google Sheets.
 
-## Activar el sitio
+## Uso
 
-En GitHub, abre **Settings → Pages** y elige **Deploy from a branch → main → /(root)**. El enlace que muestra GitHub Pages usa HTTPS, necesario para acceder a la cámara.
+1. Abre https://alfzunigajr-glitch.github.io/escaner-codigos/
+2. Escanea o escribe el código y completa tipo, cantidad o lectura, usuario y notas.
+3. Pulsa **Guardar en Google Sheets**. La app abre una ventana de Google para guardar y la cierra cuando el servidor confirma el registro.
+4. Si Google solicita inicio de sesión, usa la cuenta propietaria de la hoja. Permite las ventanas emergentes para este sitio.
 
-## Conectar Google Sheets
+La app no solicita URL ni token. La hoja conserva su acceso privado. La sesión de Google autoriza cada guardado; no se publica ninguna credencial en GitHub.
 
-1. Crea una hoja de cálculo y abre **Extensiones → Apps Script**.
-2. Pega el contenido de `Code.gs`, guarda y ejecuta `configure` desde el editor. Autoriza el acceso solicitado. Se crea la pestaña **Escaneos**.
-3. En **Configuración del proyecto → Propiedades de la secuencia de comandos**, copia el valor de `SCAN_TOKEN`.
-4. Selecciona **Implementar → Nueva implementación → Aplicación web**. Configura **Ejecutar como yo** y acceso **Cualquier persona**, si tu cuenta lo permite. Copia la URL que termina en `/exec`.
-5. Abre el sitio en el celular. En **Conexión con Google Sheets**, ingresa la URL y el token. El token se conserva en el formulario de la página mientras está abierta.
-6. Guarda primero un código manual de prueba y verifica que aparezca en **Escaneos**. Luego abre la cámara y escanea un código real.
+## Configuración de administración
 
-El sitio confirma cada guardado consultando un identificador aleatorio. Reintentar el mismo registro en la misma página usa ese identificador para evitar filas duplicadas. La aplicación web valida el token en cada escritura. Mantén el token fuera de GitHub y comparte la hoja solo con quienes deban verla.
+- Proyecto de Apps Script vinculado a la hoja: pegar Code.gs y ejecutar configure.
+- Implementación web: **Ejecutar como yo**, acceso **Solo yo**.
+- SHEETS_APP en app.js apunta a la URL /exec existente.
+- saveScan comprueba además que la cuenta activa sea la propietaria.
+- Los reintentos del mismo registro usan el mismo ID para evitar duplicados.
+- La cámara permanece en GitHub Pages; el guardado se ejecuta desde la ventana de Google con google.script.run.

@@ -44,14 +44,8 @@
     <p id="saveStatus" role="status"></p>
     <p id="saveError" role="alert"></p>
   </form>
-  <details id="connection">
-    <summary>Conexión con Google Sheets</summary>
-    <label>URL de Apps Script <input id="endpoint" type="url" placeholder="https://script.google.com/macros/s/…/exec"></label>
-    <label>Token de acceso <input id="token" type="password" autocomplete="off"></label>
-    <p id="connectionStatus" role="status"></p>
-    <button id="forgetConnection" type="button" class="secondary">Olvidar conexión</button>
-  </details>
+  <p class="connection-note">Conectado a tu hoja Escaneos mediante tu cuenta de Google.</p>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/zxing-browser.min.js" defer></script>
-<script src="app.js?v=20261119-connection" defer></script>
+<script src="app.js?v=20261119-direct-google" defer></script>
 </html>
