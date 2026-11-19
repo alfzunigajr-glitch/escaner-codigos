@@ -10,6 +10,61 @@ const endpointInput = document.querySelector('#endpoint');
 const tokenInput = document.querySelector('#token');
 const code = form.elements.code;
 
+const DEFAULT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzxvkzzhn-zs0FssvbrMXo-tHQDbmDpVr7AJtkazFK9lXQ05OwjX8nOn3TbLSSUxhry5w/exec';
+const CONNECTION_KEY = 'escaner-codigos.connection.v1';
+const connectionStatus = document.querySelector('#connectionStatus');
+const forgetConnection = document.querySelector('#forgetConnection');
+
+function rememberConnection() {
+  try {
+    localStorage.setItem(CONNECTION_KEY, JSON.stringify({
+      endpoint: endpointInput.value.trim(),
+      token: tokenInput.value.trim()
+    }));
+    connectionStatus.textContent = tokenInput.value.trim()
+      ? 'Conexión guardada en este navegador.'
+      : 'Ingresa el token una vez para conectar este navegador.';
+  } catch {
+    connectionStatus.textContent = 'Este navegador no permite recordar la conexión. Mantenla abierta para usarla.';
+  }
+}
+
+function restoreConnection() {
+  endpointInput.value = DEFAULT_ENDPOINT;
+  try {
+    const saved = JSON.parse(localStorage.getItem(CONNECTION_KEY) || 'null');
+    if (saved && typeof saved === 'object') {
+      if (typeof saved.endpoint === 'string' && saved.endpoint.trim()) {
+        endpointInput.value = saved.endpoint.trim();
+      }
+      if (typeof saved.token === 'string') tokenInput.value = saved.token.trim();
+    }
+    connectionStatus.textContent = tokenInput.value
+      ? 'Conexión guardada en este navegador.'
+      : 'Ingresa el token una vez para conectar este navegador.';
+  } catch {
+    connectionStatus.textContent = 'No se pudo recuperar la conexión. Ingresa el token para volver a configurarla.';
+  }
+  connection.open = !tokenInput.value;
+}
+
+endpointInput.addEventListener('input', rememberConnection);
+tokenInput.addEventListener('input', rememberConnection);
+forgetConnection.addEventListener('click', () => {
+  try {
+    localStorage.removeItem(CONNECTION_KEY);
+  } catch {
+    connectionStatus.textContent = 'No se pudo olvidar la conexión. Revisa los permisos de almacenamiento del navegador.';
+    return;
+  }
+  endpointInput.value = DEFAULT_ENDPOINT;
+  tokenInput.value = '';
+  connection.open = true;
+  connectionStatus.textContent = 'Conexión eliminada de este navegador.';
+});
+restoreConnection();
+
+
 let cameraControls;
 let cameraSession = 0;
 let scannedCode = '';
@@ -110,6 +165,7 @@ form.addEventListener('submit', async (event) => {
     return;
   }
 
+  rememberConnection();
   const data = new FormData(form);
   const value = code.value.trim();
   const quantity = String(data.get('amount')).trim().replace(',', '.');
