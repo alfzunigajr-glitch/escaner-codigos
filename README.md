@@ -16,6 +16,6 @@ La app no solicita URL ni token. La hoja conserva su acceso privado. La sesión 
 - Proyecto de Apps Script vinculado a la hoja: pegar Code.gs y ejecutar configure.
 - Implementación web: **Ejecutar como yo**, acceso **Solo yo**.
 - SHEETS_APP en app.js apunta a la URL /exec existente.
-- saveScan comprueba además que la cuenta activa sea la propietaria.
+- Google restringe el acceso a la implementación a la cuenta propietaria; saveScan no solicita permisos adicionales de identidad.
 - Los reintentos del mismo registro usan el mismo ID para evitar duplicados.
 - La cámara permanece en GitHub Pages; el guardado se ejecuta desde la ventana de Google con google.script.run.

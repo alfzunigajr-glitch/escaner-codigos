@@ -20,11 +20,7 @@ function configure() {
 
 // La implementación web debe tener acceso "Solo yo".
 function saveScan(params) {
-  const viewer = Session.getActiveUser().getEmail();
-  const owner = Session.getEffectiveUser().getEmail();
-  if (!viewer || !owner || viewer.toLowerCase() !== owner.toLowerCase()) {
-    throw new Error('Inicia sesión con la cuenta de Google propietaria de esta hoja y vuelve a guardar.');
-  }
+  // Google permite abrir esta implementación únicamente a su propietario (acceso Solo yo).
   return saveRecord_(params);
 }
 
